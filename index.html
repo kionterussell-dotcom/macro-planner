@@ -1,0 +1,651 @@
+<!DOCTYPE html>
+
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no"/>
+  <meta name="theme-color" content="#080604"/>
+  <meta name="apple-mobile-web-app-capable" content="yes"/>
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
+  <meta name="apple-mobile-web-app-title" content="My Macro Planner"/>
+  <title>My Macro Planner</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Mono:wght@300;400;500&display=swap" rel="stylesheet"/>
+  <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <style>
+    *{-webkit-tap-highlight-color:transparent;box-sizing:border-box;margin:0;padding:0}
+    html,body{background:#080604;overscroll-behavior:none;font-family:'DM Serif Display',Georgia,serif}
+    input,textarea,button{font-family:inherit}
+    input[type=number]::-webkit-inner-spin-button{-webkit-appearance:none}
+    ::-webkit-scrollbar{width:0}
+  </style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+const {useState,useCallback,useEffect} = React;
+
+// ─── COLORS ──────────────────────────────────────────────────────────────────
+const C={
+bg:’#080604’,surf:’#0c0a06’,surf2:’#0f0d09’,
+border:’#181410’,border2:’#221e14’,
+text:’#e8e0d0’,mid:’#a09070’,dim:’#504030’,faint:’#2a2010’,
+gold:’#a07830’,goldB:’#d0a040’,green:’#30a030’,orange:’#d06010’,
+blue:’#4080c0’,red:’#e05030’,mono:”‘DM Mono’,monospace”,serif:”‘DM Serif Display’,Georgia,serif”,
+};
+
+// ─── DATA ─────────────────────────────────────────────────────────────────────
+const DAYS=[“MON”,“TUE”,“WED”,“THU”,“FRI”,“SAT”,“SUN”];
+const DAY_TYPES=[“low”,“low”,“low”,“high”,“low”,“low”,“high”];
+const TARGETS={low:{cal:1950,carbs:50,protein:175,fat:120},high:{cal:2200,carbs:225,protein:175,fat:50}};
+const PROFILE={startWeight:208,goalWeight:178};
+
+const LOW_M=[
+{id:“m1”,time:“7:00 AM”,label:“Breakfast”,emoji:“🍳”,items:[
+{id:“i1”,name:“3 whole eggs + 3 egg whites scrambled in olive oil”,cal:320,carbs:2,protein:36,fat:20},
+{id:“i2”,name:“1 cup sautéed spinach + mushrooms”,cal:60,carbs:6,protein:4,fat:2},
+]},
+{id:“m2”,time:“12:00 PM”,label:“Lunch”,emoji:“🐟”,items:[
+{id:“i3”,name:“6 oz grilled salmon”,cal:280,carbs:0,protein:40,fat:14},
+{id:“i4”,name:“2 cups mixed greens, cucumber, ½ avocado”,cal:160,carbs:8,protein:4,fat:12},
+{id:“i5”,name:“½ cup edamame”,cal:90,carbs:7,protein:8,fat:4},
+]},
+{id:“m3”,time:“3:30 PM”,label:“Snack”,emoji:“🥛”,items:[
+{id:“i6”,name:“1 cup full-fat Greek yogurt”,cal:200,carbs:8,protein:18,fat:11},
+{id:“i7”,name:“15 almonds”,cal:104,carbs:4,protein:4,fat:9},
+]},
+{id:“m4”,time:“7:00 PM”,label:“Dinner”,emoji:“🦐”,items:[
+{id:“i8”,name:“6 oz seared tilapia”,cal:218,carbs:0,protein:44,fat:4},
+{id:“i9”,name:“2 cups roasted broccoli + zucchini in olive oil”,cal:180,carbs:14,protein:6,fat:10},
+{id:“i10”,name:“½ cup cauliflower rice”,cal:28,carbs:5,protein:2,fat:0},
+{id:“i11”,name:“½ avocado”,cal:120,carbs:6,protein:2,fat:11},
+]},
+{id:“m5”,time:“9:30 PM”,label:“Evening”,emoji:“🥚”,items:[
+{id:“i12”,name:“2 hard boiled eggs”,cal:140,carbs:1,protein:12,fat:10},
+{id:“i13”,name:“1 tbsp almond butter”,cal:98,carbs:3,protein:4,fat:9},
+]},
+];
+const HIGH_M=[
+{id:“m1”,time:“7:00 AM”,label:“Breakfast”,emoji:“🥣”,items:[
+{id:“i1”,name:“3 whole eggs scrambled”,cal:210,carbs:1,protein:18,fat:14},
+{id:“i2”,name:“1 cup oatmeal with ½ banana”,cal:220,carbs:46,protein:6,fat:3},
+]},
+{id:“m2”,time:“11:30 AM”,label:“Pre-Workout”,emoji:“⚡”,items:[
+{id:“i3”,name:“1 cup low-fat Greek yogurt”,cal:130,carbs:9,protein:18,fat:0},
+{id:“i4”,name:“1 medium apple”,cal:95,carbs:25,protein:0,fat:0},
+{id:“i5”,name:“1 rice cake with 1 tbsp honey”,cal:95,carbs:23,protein:1,fat:0},
+]},
+{id:“m3”,time:“2:00 PM”,label:“Post-Workout”,emoji:“🍚”,items:[
+{id:“i6”,name:“6 oz grilled shrimp”,cal:168,carbs:2,protein:34,fat:2},
+{id:“i7”,name:“1 cup cooked jasmine rice”,cal:206,carbs:45,protein:4,fat:0},
+{id:“i8”,name:“1 cup steamed broccoli + peas”,cal:80,carbs:14,protein:5,fat:1},
+]},
+{id:“m4”,time:“5:00 PM”,label:“Snack”,emoji:“🫙”,items:[
+{id:“i9”,name:“¾ cup cottage cheese”,cal:148,carbs:6,protein:20,fat:3},
+{id:“i10”,name:“½ cup mixed berries”,cal:42,carbs:10,protein:1,fat:0},
+]},
+{id:“m5”,time:“7:30 PM”,label:“Dinner”,emoji:“🐠”,items:[
+{id:“i11”,name:“6 oz baked salmon”,cal:280,carbs:0,protein:40,fat:14},
+{id:“i12”,name:“1 medium sweet potato”,cal:103,carbs:24,protein:2,fat:0},
+{id:“i13”,name:“Large side salad, light dressing”,cal:80,carbs:10,protein:2,fat:3},
+]},
+];
+
+function buildPlan(){
+const p={};
+DAYS.forEach((d,i)=>{
+const src=DAY_TYPES[i]===“high”?HIGH_M:LOW_M;
+p[d]=JSON.parse(JSON.stringify(src)).map(m=>({…m,id:`${d}-${m.id}`,items:m.items.map(it=>({…it,id:`${d}-${m.id}-${it.id}`}))}));
+});
+return p;
+}
+function uid(){return Math.random().toString(36).slice(2,9)}
+
+// ─── STORAGE HOOK ─────────────────────────────────────────────────────────────
+function useLS(key,init){
+const[v,setV]=useState(()=>{
+try{const s=localStorage.getItem(key);return s?JSON.parse(s):(typeof init===‘function’?init():init)}catch{return typeof init===‘function’?init():init}
+});
+const set=useCallback(val=>{
+try{const s=typeof val===‘function’?val(v):val;setV(s);localStorage.setItem(key,JSON.stringify(s))}catch{}
+},[key,v]);
+return[v,set];
+}
+
+// ─── AI FOOD LOOKUP ───────────────────────────────────────────────────────────
+async function lookupFood(q){
+const r=await fetch(“https://api.anthropic.com/v1/messages”,{
+method:“POST”,headers:{“Content-Type”:“application/json”},
+body:JSON.stringify({model:“claude-sonnet-4-20250514”,max_tokens:300,
+system:`You are a nutrition database. Return ONLY raw JSON, no markdown: {"name":"string","cal":number,"carbs":number,"protein":number,"fat":number} Use realistic USDA values. All macros in grams.`,
+messages:[{role:“user”,content:`Food: ${q}`}]}),
+});
+const d=await r.json();
+const t=d.content?.map(b=>b.text||””).join(””)||””;
+return JSON.parse(t.replace(/`json|`/g,””).trim());
+}
+
+// ─── UI PRIMITIVES ────────────────────────────────────────────────────────────
+function MacroBar({label,val,target,color}){
+const pct=Math.min(100,Math.round((val/target)*100));
+const over=val>target;
+return(
+<div style={{marginBottom:7}}>
+<div style={{display:‘flex’,justifyContent:‘space-between’,marginBottom:3}}>
+<span style={{fontSize:10,fontFamily:C.mono,letterSpacing:‘0.1em’,color:C.dim,textTransform:‘uppercase’}}>{label}</span>
+<span style={{fontSize:10,fontFamily:C.mono,color:over?C.red:color}}>{val}<span style={{color:C.faint}}>/{target}</span>{label!==‘Cal’?‘g’:’’}</span>
+</div>
+<div style={{height:3,background:’#0f0d08’,borderRadius:2,overflow:‘hidden’}}>
+<div style={{height:‘100%’,width:`${pct}%`,background:over?C.red:color,borderRadius:2,transition:‘width 0.4s ease’}}/>
+</div>
+</div>
+);
+}
+
+function SL({children}){
+return <div style={{fontSize:9,fontFamily:C.mono,letterSpacing:‘0.22em’,color:C.faint,textTransform:‘uppercase’,marginBottom:10}}>{children}</div>;
+}
+
+function Btn({children,onClick,v=‘primary’,style={}}){
+const vs={primary:{background:’#122a0a’,border:‘1px solid #1e4a10’,color:’#50c040’},
+danger:{background:’#1a0808’,border:‘1px solid #3a1010’,color:’#c03020’},
+ghost:{background:‘transparent’,border:`1px solid ${C.border2}`,color:C.dim},
+amber:{background:’#1a1000’,border:`1px solid #4a2800`,color:C.gold}};
+const s=vs[v]||vs.primary;
+return<button onClick={onClick} style={{…s,borderRadius:8,padding:‘8px 14px’,fontSize:10,fontFamily:C.mono,letterSpacing:‘0.12em’,cursor:‘pointer’,textTransform:‘uppercase’,…style}}>{children}</button>;
+}
+
+// ─── FOOD SEARCH ──────────────────────────────────────────────────────────────
+function FoodSearch({onAdd,onClose}){
+const[q,setQ]=useState(’’);const[loading,setL]=useState(false);const[result,setR]=useState(null);const[err,setE]=useState(’’);
+async function search(){
+if(!q.trim())return;setL(true);setE(’’);setR(null);
+try{setR(await lookupFood(q))}catch{setE(“Couldn’t find that. Try being more specific.”)}finally{setL(false)}
+}
+return(
+<div style={{padding:‘14px 16px’,background:’#0a0806’,borderTop:`1px solid ${C.border}`}}>
+<SL>Search Food</SL>
+<div style={{display:‘flex’,gap:8,marginBottom:10}}>
+<input autoFocus value={q} onChange={e=>setQ(e.target.value)} onKeyDown={e=>e.key===‘Enter’&&search()}
+placeholder=’“6 oz mahi mahi” or “1 cup quinoa”’
+style={{flex:1,background:’#080604’,border:`1px solid ${C.border2}`,borderRadius:8,padding:‘9px 12px’,color:C.mid,fontSize:12,fontFamily:C.mono,outline:‘none’}}/>
+<Btn onClick={search} v='amber'>{loading?’…’:‘Find’}</Btn>
+</div>
+{err&&<div style={{fontSize:11,color:C.red,fontFamily:C.mono,marginBottom:8}}>{err}</div>}
+{result&&(
+<div style={{background:’#080604’,border:`1px solid ${C.border2}`,borderRadius:10,padding:12}}>
+<div style={{fontSize:13,color:C.text,marginBottom:10}}>{result.name}</div>
+<div style={{display:‘grid’,gridTemplateColumns:‘repeat(4,1fr)’,gap:4,marginBottom:12}}>
+{[[‘Cal’,result.cal,C.gold],[‘Carbs’,`${result.carbs}g`,C.orange],[‘Protein’,`${result.protein}g`,C.blue],[‘Fat’,`${result.fat}g`,’#806040’]].map(([l,v2,col])=>(
+<div key={l} style={{textAlign:‘center’}}>
+<div style={{fontSize:15,color:col}}>{v2}</div>
+<div style={{fontSize:9,color:C.faint,fontFamily:C.mono,textTransform:‘uppercase’,marginTop:2}}>{l}</div>
+</div>
+))}
+</div>
+<div style={{display:‘flex’,gap:8}}>
+<Btn onClick={()=>{onAdd(result);onClose()}} v=‘primary’ style={{flex:1}}>+ Add to Meal</Btn>
+<Btn onClick={onClose} v='ghost'>✕</Btn>
+</div>
+</div>
+)}
+</div>
+);
+}
+
+// ─── ITEM EDITOR ──────────────────────────────────────────────────────────────
+function ItemEditor({item,onSave,onDelete,onCancel}){
+const[name,setName]=useState(item.name);const[cal,setCal]=useState(item.cal);
+const[carbs,setCarbs]=useState(item.carbs);const[protein,setProtein]=useState(item.protein);
+const[fat,setFat]=useState(item.fat);const[loading,setL]=useState(false);
+async function autoFill(){
+if(!name.trim()||name===item.name)return;setL(true);
+try{const f=await lookupFood(name);setName(f.name);setCal(f.cal);setCarbs(f.carbs);setProtein(f.protein);setFat(f.fat)}catch{}
+setL(false);
+}
+const n=v=>parseInt(v)||0;
+return(
+<div style={{background:’#0d0a06’,border:`1px solid ${C.border2}`,borderRadius:10,padding:12,margin:‘6px 0’}}>
+<input value={name} onChange={e=>setName(e.target.value)} onBlur={autoFill}
+placeholder=“Food name — blur to auto-fill macros”
+style={{width:‘100%’,boxSizing:‘border-box’,background:’#080604’,border:`1px solid ${C.border2}`,borderRadius:7,padding:‘8px 10px’,color:C.text,fontSize:12,fontFamily:C.mono,outline:‘none’,marginBottom:8}}/>
+{loading&&<div style={{fontSize:10,color:C.gold,fontFamily:C.mono,marginBottom:6}}>Looking up macros…</div>}
+<div style={{display:‘grid’,gridTemplateColumns:‘repeat(4,1fr)’,gap:6,marginBottom:10}}>
+{[[‘Cal’,cal,setCal,C.gold],[‘Carbs’,carbs,setCarbs,C.orange],[‘Protein’,protein,setProtein,C.blue],[‘Fat’,fat,setFat,’#806040’]].map(([l,v2,sv,col])=>(
+<div key={l}>
+<div style={{fontSize:9,fontFamily:C.mono,color:col,textTransform:‘uppercase’,letterSpacing:‘0.1em’,marginBottom:3}}>{l}</div>
+<input type=“number” value={v2} onChange={e=>sv(n(e.target.value))}
+style={{width:‘100%’,boxSizing:‘border-box’,background:’#080604’,border:`1px solid ${C.border}`,borderRadius:6,padding:‘6px 7px’,color:col,fontSize:12,fontFamily:C.mono,outline:‘none’}}/>
+</div>
+))}
+</div>
+<div style={{display:‘flex’,gap:6}}>
+<Btn onClick={()=>onSave({name,cal:n(cal),carbs:n(carbs),protein:n(protein),fat:n(fat)})} v=‘primary’ style={{flex:1}}>Save</Btn>
+<Btn onClick={onDelete} v='danger'>Del</Btn>
+<Btn onClick={onCancel} v='ghost'>✕</Btn>
+</div>
+</div>
+);
+}
+
+// ─── MEAL PLANNER ─────────────────────────────────────────────────────────────
+function MealPlanner(){
+const[selDay,setSelDay]=useState(()=>{const j=new Date().getDay();return j===0?6:j-1});
+const[plan,setPlan]=useLS(‘mmp-plan’,buildPlan);
+const[expanded,setExpanded]=useState(null);const[searching,setSearching]=useState(null);const[editing,setEditing]=useState(null);
+const dl=DAYS[selDay];const isHigh=DAY_TYPES[selDay]===‘high’;
+const meals=plan[dl]||[];const targets=TARGETS[DAY_TYPES[selDay]];
+const totals=meals.reduce((a,m)=>{m.items.forEach(it=>{a.cal+=it.cal;a.carbs+=it.carbs;a.protein+=it.protein;a.fat+=it.fat});return a},{cal:0,carbs:0,protein:0,fat:0});
+const mt=m=>m.items.reduce((a,it)=>({cal:a.cal+it.cal,carbs:a.carbs+it.carbs,protein:a.protein+it.protein,fat:a.fat+it.fat}),{cal:0,carbs:0,protein:0,fat:0});
+const updItem=useCallback((mid,iid,u)=>setPlan(p=>({…p,[dl]:p[dl].map(m=>m.id===mid?{…m,items:m.items.map(it=>it.id===iid?{…it,…u}:it)}:m)})),[dl,setPlan]);
+const delItem=useCallback((mid,iid)=>setPlan(p=>({…p,[dl]:p[dl].map(m=>m.id===mid?{…m,items:m.items.filter(it=>it.id!==iid)}:m)})),[dl,setPlan]);
+const addItem=useCallback((mid,food)=>setPlan(p=>({…p,[dl]:p[dl].map(m=>m.id===mid?{…m,items:[…m.items,{…food,id:`${dl}-${mid}-${uid()}`}]}:m)})),[dl,setPlan]);
+
+return(
+<div>
+{/* Day strip */}
+<div style={{padding:‘16px 16px 0’}}>
+<div style={{display:‘grid’,gridTemplateColumns:‘repeat(7,1fr)’,gap:5}}>
+{DAYS.map((d,i)=>{
+const sel=selDay===i;const hi=DAY_TYPES[i]===‘high’;
+return(
+<button key={d} onClick={()=>{setSelDay(i);setExpanded(null);setSearching(null);setEditing(null)}}
+style={{background:sel?(hi?’#1c0e04’:’#0a1a0a’):‘transparent’,border:`1px solid ${sel?(hi?'#6a3010':'#1a4a1a'):C.border}`,borderRadius:8,padding:‘9px 3px’,cursor:‘pointer’,textAlign:‘center’}}>
+<div style={{fontSize:9,fontFamily:C.mono,letterSpacing:‘0.05em’,textTransform:‘uppercase’,color:sel?(hi?’#d06020’:’#40b040’):C.faint,marginBottom:4}}>{d}</div>
+<div style={{width:5,height:5,borderRadius:‘50%’,margin:‘0 auto’,background:hi?(sel?’#e07020’:’#2a1408’):(sel?’#30a030’:’#0e180e’)}}/>
+</button>
+);
+})}
+</div>
+<div style={{marginTop:12,display:‘flex’,alignItems:‘center’}}>
+<div style={{display:‘inline-flex’,alignItems:‘center’,gap:7,background:isHigh?’#120800’:’#060e06’,border:`1px solid ${isHigh?'#4a2006':'#0e2a0e'}`,borderRadius:20,padding:‘5px 12px’}}>
+<div style={{width:7,height:7,borderRadius:‘50%’,background:isHigh?C.orange:C.green}}/>
+<span style={{fontSize:10,fontFamily:C.mono,letterSpacing:‘0.12em’,color:isHigh?C.orange:C.green,textTransform:‘uppercase’}}>
+{isHigh?‘High Carb — Train Today’:‘Low Carb Day’}
+</span>
+</div>
+</div>
+</div>
+
+```
+  {/* Macros */}
+  <div style={{margin:'12px 16px 0',background:C.surf,border:`1px solid ${C.border}`,borderRadius:14,padding:'14px 16px 10px'}}>
+    <div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:4,marginBottom:14}}>
+      {[['Cal',totals.cal,targets.cal,C.gold],['Carbs',totals.carbs,targets.carbs,isHigh?C.orange:'#405040'],['Protein',totals.protein,targets.protein,C.blue],['Fat',totals.fat,targets.fat,'#806040']].map(([l,v,t,col])=>{
+        const over=v>t;
+        return(
+          <div key={l} style={{textAlign:'center'}}>
+            <div style={{fontSize:18,color:over?C.red:col,letterSpacing:'-0.02em'}}>{v}<span style={{fontSize:10,color:C.faint}}>/{t}</span></div>
+            <div style={{fontSize:9,fontFamily:C.mono,color:C.faint,textTransform:'uppercase',letterSpacing:'0.08em',marginTop:2}}>{l}</div>
+          </div>
+        );
+      })}
+    </div>
+    <MacroBar label="Cal" val={totals.cal} target={targets.cal} color={C.gold}/>
+    <MacroBar label="Carbs" val={totals.carbs} target={targets.carbs} color={isHigh?C.orange:'#405040'}/>
+    <MacroBar label="Protein" val={totals.protein} target={targets.protein} color={C.blue}/>
+    <MacroBar label="Fat" val={totals.fat} target={targets.fat} color='#806040'/>
+  </div>
+
+  {/* Meals */}
+  <div style={{padding:'16px 16px 0',display:'flex',flexDirection:'column',gap:8}}>
+    <SL>Meals — tap to expand · tap item to edit</SL>
+    {meals.map(meal=>{
+      const isOpen=expanded===meal.id;const isSearch=searching===meal.id;const m=mt(meal);
+      return(
+        <div key={meal.id} style={{background:isOpen?C.surf2:C.surf,border:`1px solid ${isOpen?C.border2:C.border}`,borderRadius:14,overflow:'hidden'}}>
+          <button onClick={()=>{setExpanded(isOpen?null:meal.id);setSearching(null);setEditing(null)}}
+            style={{width:'100%',background:'transparent',border:'none',padding:'13px 15px',cursor:'pointer',display:'flex',alignItems:'center',gap:10,textAlign:'left'}}>
+            <span style={{fontSize:20}}>{meal.emoji}</span>
+            <div style={{flex:1}}>
+              <div style={{display:'flex',alignItems:'center',gap:8}}>
+                <span style={{fontSize:14,color:C.text}}>{meal.label}</span>
+                <span style={{fontSize:10,color:C.faint,fontFamily:C.mono}}>{meal.time}</span>
+              </div>
+              <div style={{fontSize:10,color:C.dim,fontFamily:C.mono,marginTop:1}}>{m.cal}cal · {m.protein}g P · {m.carbs}g C · {m.fat}g F</div>
+            </div>
+            <span style={{color:C.faint,fontSize:12,transform:isOpen?'rotate(180deg)':'rotate(0)',transition:'transform 0.2s'}}>▾</span>
+          </button>
+          {isOpen&&(
+            <div>
+              <div style={{height:1,background:C.border}}/>
+              <div style={{padding:'8px 14px 4px'}}>
+                {meal.items.map(item=>{
+                  const ed=editing?.mealId===meal.id&&editing?.itemId===item.id;
+                  return ed?(
+                    <ItemEditor key={item.id} item={item}
+                      onSave={u=>{updItem(meal.id,item.id,u);setEditing(null)}}
+                      onDelete={()=>{delItem(meal.id,item.id);setEditing(null)}}
+                      onCancel={()=>setEditing(null)}/>
+                  ):(
+                    <div key={item.id} onClick={()=>setEditing({mealId:meal.id,itemId:item.id})}
+                      style={{display:'flex',alignItems:'center',gap:8,padding:'7px 0',borderBottom:`1px solid #0f0d09`,cursor:'pointer'}}>
+                      <div style={{flex:1}}>
+                        <div style={{fontSize:12,color:C.mid,lineHeight:1.4}}>{item.name}</div>
+                        <div style={{fontSize:10,color:C.faint,fontFamily:C.mono,marginTop:1}}>{item.cal}cal · {item.protein}g P · {item.carbs}g C · {item.fat}g F</div>
+                      </div>
+                      <span style={{fontSize:11,color:C.faint}}>✎</span>
+                    </div>
+                  );
+                })}
+              </div>
+              {isSearch?(
+                <FoodSearch onAdd={f=>addItem(meal.id,f)} onClose={()=>setSearching(null)}/>
+              ):(
+                <div style={{padding:'6px 14px 12px'}}>
+                  <button onClick={()=>setSearching(meal.id)} style={{width:'100%',background:'transparent',border:`1px dashed ${C.border2}`,borderRadius:8,padding:'9px',color:C.dim,fontSize:10,fontFamily:C.mono,cursor:'pointer',letterSpacing:'0.12em',display:'flex',alignItems:'center',justifyContent:'center',gap:6}}>
+                    <span style={{fontSize:14,color:C.dim}}>+</span> ADD FOOD
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      );
+    })}
+  </div>
+  <div style={{height:20}}/>
+</div>
+```
+
+);
+}
+
+// ─── PROGRESS TRACKER ─────────────────────────────────────────────────────────
+function WeightChart({entries}){
+if(entries.length<2)return null;
+const vals=entries.map(e=>e.weight);
+const min=Math.min(…vals)-2,max=Math.max(…vals)+2;
+const W=Math.max(300,entries.length*44),H=90;
+const xS=W/(entries.length-1);
+const yS=v=>H-((v-min)/(max-min))*H;
+const pts=entries.map((e,i)=>({x:i*xS,y:yS(e.weight)}));
+const path=pts.map((p,i)=>`${i===0?'M':'L'}${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(’ ’);
+const gY=yS(PROFILE.goalWeight);
+return(
+<div style={{overflowX:‘auto’}}>
+<svg width={W} height={H+28} style={{display:‘block’}}>
+<line x1={0} y1={gY} x2={W} y2={gY} stroke='#1a3a1a' strokeWidth={1} strokeDasharray="4,4"/>
+<text x={4} y={gY-4} fill='#2a5a2a' fontSize={8} fontFamily={C.mono}>GOAL 178</text>
+<path d={path} fill='none' stroke={C.gold} strokeWidth={2} strokeLinecap='round' strokeLinejoin='round'/>
+{pts.map((p,i)=><circle key={i} cx={p.x} cy={p.y} r={3} fill={C.gold}/>)}
+{entries.map((e,i)=><text key={i} x={i*xS} y={H+20} fill={C.faint} fontSize={8} fontFamily={C.mono} textAnchor='middle'>
+{new Date(e.date+‘T12:00’).toLocaleDateString(‘en-US’,{month:‘numeric’,day:‘numeric’})}
+</text>)}
+</svg>
+</div>
+);
+}
+
+function ProgressTracker(){
+const[entries,setEntries]=useLS(‘mmp-weight’,[]);
+const[w,setW]=useState(’’);const[note,setNote]=useState(’’);const[showAll,setSA]=useState(false);
+const today=new Date().toISOString().slice(0,10);
+const hasToday=entries.some(e=>e.date===today);
+function add(){
+const wt=parseFloat(w);if(!wt||wt<100||wt>400)return;
+const entry={id:Date.now(),date:today,weight:wt,note:note.trim()};
+const sorted=[…entries.filter(e=>e.date!==today),entry].sort((a,b)=>a.date.localeCompare(b.date));
+setEntries(sorted);setW(’’);setNote(’’);
+}
+const latest=entries.length?entries[entries.length-1]:null;
+const lost=latest?+(PROFILE.startWeight-latest.weight).toFixed(1):0;
+const rem=latest?+(latest.weight-PROFILE.goalWeight).toFixed(1):PROFILE.startWeight-PROFILE.goalWeight;
+const pct=Math.min(100,Math.round((lost/(PROFILE.startWeight-PROFILE.goalWeight))*100));
+const disp=showAll?[…entries].reverse():[…entries].reverse().slice(0,8);
+return(
+<div style={{padding:‘16px 16px 0’}}>
+<div style={{display:‘grid’,gridTemplateColumns:‘repeat(3,1fr)’,gap:8,marginBottom:16}}>
+{[[‘Current’,latest?`${latest.weight}`:PROFILE.startWeight,‘lbs’,C.gold],[‘Lost’,lost>0?`-${lost}`:‘0’,‘lbs’,C.green],[‘To Go’,rem,‘lbs’,C.orange]].map(([l,v,u,col])=>(
+<div key={l} style={{background:C.surf,border:`1px solid ${C.border}`,borderRadius:12,padding:‘12px 10px’,textAlign:‘center’}}>
+<div style={{fontSize:22,color:col,letterSpacing:’-0.02em’}}>{v}<span style={{fontSize:11,color:C.faint}}>{u}</span></div>
+<div style={{fontSize:9,fontFamily:C.mono,color:C.faint,textTransform:‘uppercase’,letterSpacing:‘0.1em’,marginTop:3}}>{l}</div>
+</div>
+))}
+</div>
+<div style={{background:C.surf,border:`1px solid ${C.border}`,borderRadius:12,padding:‘14px 16px’,marginBottom:16}}>
+<div style={{display:‘flex’,justifyContent:‘space-between’,marginBottom:8}}>
+<span style={{fontSize:10,fontFamily:C.mono,color:C.dim,letterSpacing:‘0.1em’,textTransform:‘uppercase’}}>Journey to 178</span>
+<span style={{fontSize:10,fontFamily:C.mono,color:C.gold}}>{pct}%</span>
+</div>
+<div style={{height:6,background:’#0f0d08’,borderRadius:3,overflow:‘hidden’}}>
+<div style={{height:‘100%’,width:`${pct}%`,background:`linear-gradient(90deg,${C.gold},#e0a040)`,borderRadius:3,transition:‘width 0.5s ease’}}/>
+</div>
+<div style={{display:‘flex’,justifyContent:‘space-between’,marginTop:6}}>
+<span style={{fontSize:9,fontFamily:C.mono,color:C.faint}}>208 lbs</span>
+<span style={{fontSize:9,fontFamily:C.mono,color:C.faint}}>178 lbs</span>
+</div>
+</div>
+{entries.length>=2&&(
+<div style={{background:C.surf,border:`1px solid ${C.border}`,borderRadius:12,padding:‘14px 16px’,marginBottom:16}}>
+<SL>Weight Trend</SL>
+<WeightChart entries={entries}/>
+</div>
+)}
+<div style={{background:C.surf,border:`1px solid ${C.border}`,borderRadius:12,padding:‘14px 16px’,marginBottom:16}}>
+<SL>{hasToday?“Update Today’s Weight”:“Log Today’s Weight”}</SL>
+<div style={{display:‘flex’,gap:8,marginBottom:8}}>
+<input type=“number” value={w} onChange={e=>setW(e.target.value)} placeholder=“lbs” step=“0.1”
+style={{width:90,background:’#080604’,border:`1px solid ${C.border2}`,borderRadius:8,padding:‘10px 12px’,color:C.text,fontSize:16,fontFamily:C.mono,outline:‘none’,textAlign:‘center’}}/>
+<input value={note} onChange={e=>setNote(e.target.value)} placeholder=“Note (optional)”
+style={{flex:1,background:’#080604’,border:`1px solid ${C.border2}`,borderRadius:8,padding:‘10px 12px’,color:C.mid,fontSize:12,fontFamily:C.mono,outline:‘none’}}/>
+</div>
+<Btn onClick={add} v=‘primary’ style={{width:‘100%’,padding:‘10px’}}>{hasToday?‘Update Entry’:‘Log Weight’}</Btn>
+</div>
+{entries.length>0&&(
+<div style={{background:C.surf,border:`1px solid ${C.border}`,borderRadius:12,padding:‘14px 16px’,marginBottom:16}}>
+<SL>History</SL>
+{disp.map((e,i)=>{
+const prev=entries[entries.length-1-i-1];
+const delta=prev?+(e.weight-prev.weight).toFixed(1):null;
+const isT=e.date===today;
+return(
+<div key={e.id} style={{display:‘flex’,alignItems:‘center’,padding:‘8px 0’,borderBottom:`1px solid ${C.border}`}}>
+<div style={{flex:1}}>
+<div style={{display:‘flex’,alignItems:‘center’,gap:8}}>
+<span style={{fontSize:13,color:isT?C.gold:C.mid}}>{e.weight} lbs</span>
+{delta!==null&&<span style={{fontSize:10,fontFamily:C.mono,color:delta<0?C.green:delta>0?C.red:C.faint}}>{delta>0?’+’:’’}{delta}</span>}
+{isT&&<span style={{fontSize:9,fontFamily:C.mono,color:C.gold,letterSpacing:‘0.1em’}}>TODAY</span>}
+</div>
+{e.note&&<div style={{fontSize:11,color:C.dim,marginTop:2}}>{e.note}</div>}
+</div>
+<span style={{fontSize:10,fontFamily:C.mono,color:C.faint}}>{new Date(e.date+‘T12:00’).toLocaleDateString(‘en-US’,{month:‘short’,day:‘numeric’})}</span>
+</div>
+);
+})}
+{entries.length>8&&<button onClick={()=>setSA(!showAll)} style={{marginTop:8,background:‘transparent’,border:‘none’,color:C.dim,fontSize:11,fontFamily:C.mono,cursor:‘pointer’,letterSpacing:‘0.1em’}}>{showAll?‘Show less ▲’:`Show all ${entries.length} ▼`}</button>}
+</div>
+)}
+<div style={{height:20}}/>
+</div>
+);
+}
+
+// ─── WORKOUT LOGGER ───────────────────────────────────────────────────────────
+const WT=[
+{id:‘strength’,label:‘Strength’,emoji:‘🏋️’,color:’#4080c0’},
+{id:‘cardio’,label:‘Cardio’,emoji:‘🏃’,color:C.green},
+{id:‘hiit’,label:‘HIIT’,emoji:‘⚡’,color:C.orange},
+{id:‘swim’,label:‘Swim’,emoji:‘🏊’,color:’#20a0c0’},
+{id:‘yoga’,label:‘Yoga/Flex’,emoji:‘🧘’,color:’#8060c0’},
+{id:‘rest’,label:‘Rest Day’,emoji:‘😴’,color:C.dim},
+];
+const INTENS=[‘Easy’,‘Moderate’,‘Hard’,‘Max’];
+
+function WorkoutLogger(){
+const[logs,setLogs]=useLS(‘mmp-workouts’,[]);
+const[type,setType]=useState(‘strength’);const[intens,setIntens]=useState(1);
+const[dur,setDur]=useState(’’);const[notes,setNotes]=useState(’’);const[showAll,setSA]=useState(false);
+const today=new Date().toISOString().slice(0,10);
+const todayLog=logs.find(l=>l.date===today);
+function log(){
+const e={id:Date.now(),date:today,type,intensity:intens,duration:parseInt(dur)||0,notes:notes.trim()};
+const s=[…logs.filter(l=>l.date!==today),e].sort((a,b)=>a.date.localeCompare(b.date));
+setLogs(s);setNotes(’’);
+}
+const weekDates=DAYS.map((_,i)=>{
+const d=new Date();const jd=d.getDay();const off=jd===0?-6:1-jd;
+const nd=new Date(d);nd.setDate(d.getDate()+off+i);return nd.toISOString().slice(0,10);
+});
+const streak=(()=>{
+let s=0;const sorted=[…logs].sort((a,b)=>b.date.localeCompare(a.date));
+for(const l of sorted){if(l.type===‘rest’)continue;const ex=new Date();ex.setDate(ex.getDate()-s);if(l.date===ex.toISOString().slice(0,10))s++;else break;}
+return s;
+})();
+const total=logs.filter(l=>l.type!==‘rest’).length;
+const wkTotal=weekDates.filter(d=>logs.find(l=>l.date===d&&l.type!==‘rest’)).length;
+const disp=showAll?[…logs].reverse():[…logs].reverse().slice(0,10);
+const wt2=WT.find(w=>w.id===type);
+return(
+<div style={{padding:‘16px 16px 0’}}>
+<div style={{display:‘grid’,gridTemplateColumns:‘repeat(3,1fr)’,gap:8,marginBottom:16}}>
+{[[‘Streak’,streak,‘days’,C.gold],[‘Total’,total,‘sessions’,C.blue],[‘This Wk’,wkTotal,’/7’,C.green]].map(([l,v,u,col])=>(
+<div key={l} style={{background:C.surf,border:`1px solid ${C.border}`,borderRadius:12,padding:‘12px 10px’,textAlign:‘center’}}>
+<div style={{fontSize:22,color:col,letterSpacing:’-0.02em’}}>{v}<span style={{fontSize:11,color:C.faint}}>{u}</span></div>
+<div style={{fontSize:9,fontFamily:C.mono,color:C.faint,textTransform:‘uppercase’,letterSpacing:‘0.1em’,marginTop:3}}>{l}</div>
+</div>
+))}
+</div>
+{/* Weekly strip */}
+<div style={{background:C.surf,border:`1px solid ${C.border}`,borderRadius:12,padding:‘14px 16px’,marginBottom:16}}>
+<SL>This Week</SL>
+<div style={{display:‘grid’,gridTemplateColumns:‘repeat(7,1fr)’,gap:5}}>
+{DAYS.map((d,i)=>{
+const date=weekDates[i];const lg=logs.find(l=>l.date===date);
+const hi=DAY_TYPES[i]===‘high’;const isT=date===today;
+const wtype=WT.find(w=>w.id===lg?.type);
+return(
+<div key={d} style={{textAlign:‘center’}}>
+<div style={{fontSize:8,fontFamily:C.mono,color:isT?C.gold:C.faint,letterSpacing:‘0.05em’,marginBottom:4}}>{d}</div>
+<div style={{width:‘100%’,paddingBottom:‘100%’,position:‘relative’,borderRadius:8,
+background:lg?(lg.type===‘rest’?’#141008’:’#0a1a0a’):’#0c0a06’,
+border:`1px solid ${lg?(lg.type==='rest'?'#2a2008':'#1a3a1a'):isT?C.border2:C.border}`}}>
+<div style={{position:‘absolute’,inset:0,display:‘flex’,alignItems:‘center’,justifyContent:‘center’,fontSize:14}}>
+{lg?wtype?.emoji:(hi?‘🔥’:’’)}
+</div>
+</div>
+{hi&&!lg&&<div style={{fontSize:7,fontFamily:C.mono,color:’#502010’,marginTop:2,letterSpacing:‘0.05em’}}>HI-C</div>}
+</div>
+);
+})}
+</div>
+</div>
+{/* Log */}
+<div style={{background:C.surf,border:`1px solid ${C.border}`,borderRadius:12,padding:‘14px 16px’,marginBottom:16}}>
+<SL>{todayLog?“Update Today’s Workout”:“Log Today’s Workout”}</SL>
+<div style={{display:‘grid’,gridTemplateColumns:‘repeat(3,1fr)’,gap:6,marginBottom:12}}>
+{WT.map(w=>(
+<button key={w.id} onClick={()=>setType(w.id)} style={{background:type===w.id?’#0a1a0a’:‘transparent’,border:`1px solid ${type===w.id?w.color:C.border}`,borderRadius:8,padding:‘9px 6px’,cursor:‘pointer’,textAlign:‘center’}}>
+<div style={{fontSize:18,marginBottom:2}}>{w.emoji}</div>
+<div style={{fontSize:9,fontFamily:C.mono,color:type===w.id?w.color:C.faint,letterSpacing:‘0.08em’}}>{w.label}</div>
+</button>
+))}
+</div>
+{type!==‘rest’&&(
+<>
+<div style={{marginBottom:10}}>
+<div style={{fontSize:9,fontFamily:C.mono,color:C.faint,letterSpacing:‘0.12em’,textTransform:‘uppercase’,marginBottom:6}}>Intensity</div>
+<div style={{display:‘grid’,gridTemplateColumns:‘repeat(4,1fr)’,gap:5}}>
+{INTENS.map((s,idx)=>(
+<button key={s} onClick={()=>setIntens(idx)} style={{background:intens===idx?’#0a1a0a’:‘transparent’,border:`1px solid ${intens===idx?C.green:C.border}`,borderRadius:7,padding:‘7px 4px’,cursor:‘pointer’,fontSize:10,fontFamily:C.mono,color:intens===idx?C.green:C.faint,letterSpacing:‘0.06em’}}>{s}</button>
+))}
+</div>
+</div>
+<div style={{marginBottom:10}}>
+<div style={{fontSize:9,fontFamily:C.mono,color:C.faint,letterSpacing:‘0.12em’,textTransform:‘uppercase’,marginBottom:6}}>Duration (min)</div>
+<input type=“number” value={dur} onChange={e=>setDur(e.target.value)} placeholder=“45”
+style={{width:‘100%’,boxSizing:‘border-box’,background:’#080604’,border:`1px solid ${C.border2}`,borderRadius:8,padding:‘10px 12px’,color:C.text,fontSize:16,fontFamily:C.mono,outline:‘none’,textAlign:‘center’}}/>
+</div>
+</>
+)}
+<div style={{marginBottom:12}}>
+<div style={{fontSize:9,fontFamily:C.mono,color:C.faint,letterSpacing:‘0.12em’,textTransform:‘uppercase’,marginBottom:6}}>Notes</div>
+<textarea value={notes} onChange={e=>setNotes(e.target.value)} placeholder=“What did you do? How did it feel?” rows={2}
+style={{width:‘100%’,boxSizing:‘border-box’,background:’#080604’,border:`1px solid ${C.border2}`,borderRadius:8,padding:‘10px 12px’,color:C.mid,fontSize:12,fontFamily:C.mono,outline:‘none’,resize:‘none’,lineHeight:1.5}}/>
+</div>
+<Btn onClick={log} v=‘primary’ style={{width:‘100%’,padding:‘10px’}}>{todayLog?‘Update Workout’:`Log ${wt2?.label}`}</Btn>
+</div>
+{logs.length>0&&(
+<div style={{background:C.surf,border:`1px solid ${C.border}`,borderRadius:12,padding:‘14px 16px’,marginBottom:16}}>
+<SL>History</SL>
+{disp.map(lg=>{
+const wt3=WT.find(w=>w.id===lg.type);const isT=lg.date===today;
+return(
+<div key={lg.id} style={{display:‘flex’,alignItems:‘center’,gap:10,padding:‘9px 0’,borderBottom:`1px solid ${C.border}`}}>
+<span style={{fontSize:20}}>{wt3?.emoji}</span>
+<div style={{flex:1}}>
+<div style={{display:‘flex’,alignItems:‘center’,gap:8}}>
+<span style={{fontSize:13,color:isT?C.gold:C.mid}}>{wt3?.label}</span>
+{lg.type!==‘rest’&&lg.duration>0&&<span style={{fontSize:10,fontFamily:C.mono,color:C.dim}}>{lg.duration}min</span>}
+{lg.type!==‘rest’&&<span style={{fontSize:9,fontFamily:C.mono,color:wt3?.color||C.faint}}>{INTENS[lg.intensity]}</span>}
+{isT&&<span style={{fontSize:9,fontFamily:C.mono,color:C.gold,letterSpacing:‘0.1em’}}>TODAY</span>}
+</div>
+{lg.notes&&<div style={{fontSize:11,color:C.dim,marginTop:2}}>{lg.notes}</div>}
+</div>
+<span style={{fontSize:10,fontFamily:C.mono,color:C.faint,flexShrink:0}}>{new Date(lg.date+‘T12:00’).toLocaleDateString(‘en-US’,{month:‘short’,day:‘numeric’})}</span>
+</div>
+);
+})}
+{logs.length>10&&<button onClick={()=>setSA(!showAll)} style={{marginTop:8,background:‘transparent’,border:‘none’,color:C.dim,fontSize:11,fontFamily:C.mono,cursor:‘pointer’,letterSpacing:‘0.1em’}}>{showAll?‘Show less ▲’:`Show all ${logs.length} ▼`}</button>}
+</div>
+)}
+<div style={{height:20}}/>
+</div>
+);
+}
+
+// ─── APP SHELL ────────────────────────────────────────────────────────────────
+const TABS=[{id:‘meals’,label:‘Meals’,icon:‘🥗’},{id:‘progress’,label:‘Progress’,icon:‘📉’},{id:‘workout’,label:‘Workout’,icon:‘🏋️’}];
+
+function App(){
+const[tab,setTab]=useState(‘meals’);
+return(
+<div style={{minHeight:‘100vh’,background:C.bg,color:C.text,fontFamily:C.serif,maxWidth:500,margin:‘0 auto’}}>
+{/* Header */}
+<div style={{position:‘sticky’,top:0,zIndex:100,background:‘rgba(8,6,4,0.97)’,backdropFilter:‘blur(12px)’,borderBottom:`1px solid ${C.border}`,padding:‘14px 20px 12px’}}>
+<div style={{display:‘flex’,alignItems:‘center’,justifyContent:‘space-between’}}>
+<div>
+<div style={{fontSize:9,fontFamily:C.mono,letterSpacing:‘0.22em’,color:’#604020’,textTransform:‘uppercase’,marginBottom:2}}>My Macro Planner</div>
+<h1 style={{margin:0,fontSize:20,fontWeight:400,letterSpacing:’-0.02em’,color:C.text,lineHeight:1}}>Cut to 178</h1>
+</div>
+<div style={{textAlign:‘right’}}>
+<div style={{fontSize:9,fontFamily:C.mono,color:C.faint,letterSpacing:‘0.1em’,textTransform:‘uppercase’}}>Target</div>
+<div style={{fontSize:16,color:C.gold,fontFamily:C.mono}}>-30 lbs</div>
+</div>
+</div>
+</div>
+
+```
+  {/* Content */}
+  <div style={{paddingBottom:80}}>
+    {tab==='meals'&&<MealPlanner/>}
+    {tab==='progress'&&<ProgressTracker/>}
+    {tab==='workout'&&<WorkoutLogger/>}
+  </div>
+
+  {/* Bottom nav */}
+  <div style={{position:'fixed',bottom:0,left:'50%',transform:'translateX(-50%)',width:'100%',maxWidth:500,background:'rgba(8,6,4,0.98)',backdropFilter:'blur(16px)',borderTop:`1px solid ${C.border}`,display:'grid',gridTemplateColumns:'repeat(3,1fr)',paddingBottom:'env(safe-area-inset-bottom,0px)'}}>
+    {TABS.map(t=>{
+      const active=tab===t.id;
+      return(
+        <button key={t.id} onClick={()=>setTab(t.id)} style={{background:'transparent',border:'none',padding:'14px 8px 12px',cursor:'pointer',textAlign:'center',display:'flex',flexDirection:'column',alignItems:'center',gap:4}}>
+          <span style={{fontSize:20,opacity:active?1:0.4}}>{t.icon}</span>
+          <span style={{fontSize:9,fontFamily:C.mono,letterSpacing:'0.12em',textTransform:'uppercase',color:active?C.gold:C.faint}}>{t.label}</span>
+          {active&&<div style={{width:16,height:2,background:C.gold,borderRadius:1}}/>}
+        </button>
+      );
+    })}
+  </div>
+</div>
+```
+
+);
+}
+
+ReactDOM.createRoot(document.getElementById(‘root’)).render(<App/>);
+</script>
+
+</body>
+</html>
